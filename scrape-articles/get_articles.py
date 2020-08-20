@@ -4,12 +4,26 @@ import requests as r
 import re
 import queue
 import asyncio
-import bs4
+from time import sleep
 from functools import partial
 from bs4 import BeautifulSoup
 
+
+# I wrote this module before reading this page:
+# https://en.wikipedia.org/wiki/Wikipedia:Database_download,
+# which requests that webcrawlers make at most 1 request per
+# second. Thus the asyncio in this module should never be
+# used. But it remains to demonstrate the fact that I know
+# how to write concurrent code. 
+# This module refers to actual employment of the asyncio code
+# as "being evil", and so you 
+
+
+# A limit of 1000 at 1 request per second brings
+# each call to list_all_pages() at ~15 minutes.
+MAX_REQUESTS_WHEN_NOT_EVIL = 1000
+NUM_CONSUMERS_WHEN_EVIL = 100
 WIKIPEDIA_PREFIX = 'https://en.wikipedia.org/wiki/'
-NUM_CONSUMERS = 100
 
 
 async def get_wiki(session: r.Session, page_name: str) -> r.Response:
@@ -73,7 +87,10 @@ async def pages_in_category(html: BeautifulSoup) -> Iterable[str]:
     except AttributeError:
         return set()
     category_groups = await category_groups_future
-    pages = map(lambda page: page.find('a')['href'], category_groups)
+    pages = map(
+        lambda page: strip_internal_link(page.find('a')['href']),
+        category_groups
+    )
     return pages
 
 
@@ -111,18 +128,24 @@ def strip_internal_link(internal_link: str) -> str:
 
 
 async def consume_queue(
+        limit_requests: bool,
         relevant_terms: Iterable[re.Pattern],
         sess: r.Session,
         nodes_checked: Iterable[str],
         nodes_to_check: Iterable[str], 
         all_articles: Iterable[str]
-        ) -> None:
+    ) -> None:
     loop = asyncio.get_event_loop()
+    pages_put_counter = 0
     while True:
+        if limit_requests and pages_put_counter >= MAX_REQUESTS_WHEN_NOT_EVIL:
+            return
         try:
             category = nodes_to_check.get(timeout=3)
         except queue.Empty:
             return
+        if limit_requests:
+            sleep(1)
         nodes_checked.add(category)
         response = await get_category_page(sess, category)
         soup_future = loop.run_in_executor(
@@ -135,17 +158,14 @@ async def consume_queue(
         subcats = await subcategories(soup)
         footer = await category_footer(soup)
         for category in subcats:
-            if category in nodes_checked:
-                #print('decided the category was checked already: ', category)
-                continue
-            elif not relevant_term_in_footer(relevant_terms, footer):
-                #print('decided the category had insufficient footer-relevance: ', category)
-                continue
-            nodes_to_check.put(category)
+            if category not in nodes_checked and relevant_term_in_footer(relevant_terms, footer):
+                nodes_to_check.put(category)
         pages = await pages_in_category(soup)
         for page in pages:
-            if True: #root_node_name in article_entity(soup):
+            if page not in all_articles:
+                print(page)
                 all_articles.add(page)
+                pages_put_counter += 1
 
 
 def relevant_term_in_footer(relevant_terms, footer) -> bool:
@@ -156,7 +176,13 @@ def relevant_term_in_footer(relevant_terms, footer) -> bool:
     return False
 
 
-async def list_all_pages(category_name: str, relevant_terms: Iterable[str]) -> Iterable[str]:
+# Always call with be_evil=False.
+# See README.md
+async def list_all_pages(
+        category_name: str,
+        relevant_terms: Iterable[str],
+        be_evil=False
+    ) -> Iterable[str]:
     loop = asyncio.get_event_loop()
     sess = r.Session()
     search_root = get_category_page_blocking(sess, category_name)
@@ -172,14 +198,18 @@ async def list_all_pages(category_name: str, relevant_terms: Iterable[str]) -> I
 
 
     # DATASTRUCTURES
-    # We want appending to be O(1) and we don't want duplicates.
+    # This is our output datastructure. We want appends to be O(1)
+    # and we don't want to have to think about duplicates.
     all_articles = set()
-    # We don't want to get stuck in a graph cycle; set()
-    # allows O(1) membership testing.
+    # We need this datastructure to make sure we don't get into a
+    # cycle by accident. Choosing set() gives us O(1) membership
+    # tests.
     nodes_checked = set()
     # I expect the search tree to be much wider than it is tall.
     # Thus LIFO will keep space complexity low as we traverse
-    # the tree.
+    # the tree. If this was a bigger project, then I'd do
+    # experiments to verify my expectation and choose FIFO if
+    # I was wrong.
     nodes_to_check = queue.LifoQueue()
 
     # Get children of root
@@ -188,15 +218,29 @@ async def list_all_pages(category_name: str, relevant_terms: Iterable[str]) -> I
     for category in await subcategories(soup):
         nodes_to_check.put(category)
 
-    tasks = asyncio.gather(
-        *([
-            consume_queue(
+    num_consumers = 0
+    limit_requests = True
+    # be_evil should always be False.
+    # See README.md.
+    if be_evil:
+        num_consumers = NUM_CONSUMERS_WHEN_EVIL
+        limit_requests = False
+    else:
+        num_consumers = 1
+
+    coroutines_to_run = num_consumers * [
+        consume_queue(
+            limit_requests,
             relevant_terms,
             sess,
             nodes_checked,
             nodes_to_check,
             all_articles
-        )]*NUM_CONSUMERS)
+        )
+    ]
+
+    tasks = asyncio.gather(
+        *coroutines_to_run
     )
     await tasks
 
