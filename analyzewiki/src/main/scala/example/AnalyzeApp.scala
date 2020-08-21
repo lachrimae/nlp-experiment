@@ -41,7 +41,6 @@ object AnalyzeApp extends App{
   "org.postgresql.Driver", "jdbc:postgresql:world", "postgres", ""
   )
 
-
   val articles = QueryRecipe
     .articleNames
     .to[Seq]
@@ -60,6 +59,9 @@ object Runner {
       .getStats(rdd)
       .toLocalIterator
       .toStream
-    val streamOutputTask = QueryRecipe.writeStats(stats)
+    val outputStream = QueryRecipe
+      .writeStats(stats)
+      .transact(dbConn)
+      .unsafeRunSync
   }
 }
