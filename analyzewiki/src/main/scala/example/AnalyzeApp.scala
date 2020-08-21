@@ -1,10 +1,11 @@
 package com.lachrimae.analyzeWiki
 
 import org.apache.spark.{SparkConf, SparkContext}
-import doobie.imports._
-import doobie.util._
-import scalaz._, Scalaz._
-import scalaz.concurrent.Task
+import doobie._
+import doobie.implicits._
+import doobie.util.ExecutionContexts
+import cats._, cats.data._, cats.effect._, cats.implicits._
+import scala.language.higherKinds
 
 /**
   * Use this to test the app locally, from sbt:
@@ -21,6 +22,7 @@ object AnalyzeLocalApp extends App{
 }
   */
 
+
 object QueryRecipe {
   val tableName = "bio_articles"
   val articleNames = sql"SELECT id, article_contents FROM ${tableName}".query[Article]
@@ -34,22 +36,24 @@ object QueryRecipe {
   * Use this when submitting the app to a cluster with spark-submit
   * */
 object AnalyzeApp extends App{
-  val conn = Transactor.fromDriverManager[Task](
+  implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
+  val conn = Transactor.fromDriverManager[IO](
   "org.postgresql.Driver", "jdbc:postgresql:world", "postgres", ""
   )
 
+
   val articles = QueryRecipe
     .articleNames
-    .nel
+    .to[Seq]
     .transact(conn)
-    .unsafePerformSync
+    .unsafeRunSync
 
   // spark-submit command should supply all necessary config elements
   Runner.run(new SparkConf(), articles, conn)
 }
 
 object Runner {
-  def run(conf: SparkConf, inputData: NonEmptyList[Article], dbConn: DriverManagerTransactor[Task]): Unit = {
+  def run(conf: SparkConf, inputData: Seq[Article], dbConn: Transactor[IO]): Unit = {
     val sc = new SparkContext(conf)
     val rdd = sc.makeRDD(inputData)
     val stats = GetSentenceAndWordStats
