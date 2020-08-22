@@ -1,4 +1,4 @@
-import get_articles as g
+from get_articles import list_all_articles
 import asyncio
 
 
@@ -9,14 +9,14 @@ MUSIC_KEYWORDS = ['music', 'sing', 'guitar', 'bass', 'brass', 'flaut', 'flute', 
 
 
 def main():
-    scientist_pages = asyncio.run(g.list_all_pages(
+    scientist_pages = b.list_all_pages(
         'Scientists',
         SCIENCE_KEYWORDS
-    ))
-    musician_pages = asyncio.run(g.list_all_pages(
+    )
+    musician_pages = b.list_all_pages(
         'Musicians',
         MUSIC_KEYWORDS
-    ))
+    )
 
 
 if __name__ == '__main__':
