@@ -1,5 +1,11 @@
 SHELL:=/bin/bash
 
+download-data:
+	cd data && \
+		wget https://dumps.wikimedia.org/enwiki/20200801/enwiki-20200801-pages-articles-multistream.xml.bz2 && \
+		wget https://dumps.wikimedia.org/enwiki/20200801/enwiki-20200801-pages-articles-multistream-index.txt.bz2 && \
+		bunzip2 enwiki-20200801-pages-articles-multistream-index.txt.bz2
+
 keygen:
 	ssh-keygen -f ./docker/clusterkey -N ''
 

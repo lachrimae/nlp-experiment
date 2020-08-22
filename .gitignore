@@ -3,3 +3,4 @@ TODO.md
 .ipynb_checkpoints/
 clusterkey*
 slaves
+data/*
