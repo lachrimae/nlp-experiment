@@ -1,34 +1,39 @@
-#!/usr/bin/env python
 from typing import Iterable
-import re
-import queue
-import wikitextparser as w
+import bz2
+from types import Page
+from xml.etree import ElementTree as ET
 
 
-WIKIPEDIA_PREFIX = 'https://en.wikipedia.org/wiki/'
+DUMP_LOCATION = '../data/enwiki-20200801-pages-articles-multistream.xml.bz2'
 
 
-def get_wiki(session: r.Session, page_name: str) -> r.Response:
-    url = WIKIPEDIA_PREFIX + page_name
-    for i in range(len(page_name)):
-        if page_name[i] == ' ':
-            page_name[i] = '_'
-        None, session.get, url
-
-
-def get_wiki_blocking(session: r.Session, page_name: str) -> r.Response:
-    for i in range(len(page_name)):
-        if page_name[i] == ' ':
-            page_name[i] = '_'
-    return session.get(WIKIPEDIA_PREFIX + page_name)
-
-
- def get_category_page(session: r.Session, category_name: str) -> r.Response:
-    return  get_wiki(session, 'Category:' + category_name)
-
-
-def get_category_page_blocking(session: r.Session, category_name: str) -> r.Response:
-    return get_wiki_blocking(session, 'Category:' + category_name)
+def get_articles(pages: Iterable[Page]) -> Iterable[ET.Element]:
+    output = list()
+    articles_found = {page: False for page in pages}
+    offsets = map(lambda page: page.offset, pages)
+    reader = bz2.BZ2Decompressor()
+    with bz2.open(DUMP_LOCATION, mode='rb') as dump:
+        for offset in offsets:
+            pages_of_interest = filter(
+                lambda page: page.offset == offset,
+                pages
+            )
+            dump.seek(offset)
+            last_article = b''
+            while False in articles_found.values():
+                line = dump.readline()
+                if line == '': # EOF
+                    break
+                elif line != b'\n': # the separator between wikipedia articles
+                    last_article += line
+                    continue
+                xml = ET.fromstring(last_article)
+                maybe_page = match_page(xml, pages_of_interest)
+                if maybe_page is not None:
+                    articles_found[maybe_page] = True
+                    output.append(xml)
+                last_article = b''
+    return output
 
 
  def subcategories(html: BeautifulSoup) -> Iterable[str]:
@@ -65,7 +70,7 @@ def get_category_page_blocking(session: r.Session, category_name: str) -> r.Resp
     return pages
 
 
- def category_footer(html: BeautifulSoup) -> Iterable [str]:
+def category_footer(xml: ET.Element) -> Iterable [str]:
         None,
         partial(
             html.find,
@@ -87,10 +92,6 @@ def get_category_page_blocking(session: r.Session, category_name: str) -> r.Resp
     return list(map(lambda name: name[9:], category_article_names))
 
 
-def article_entity(html: BeautifulSoup) -> Iterable [str]:
-    return set()
-
-
 # Turn '/wiki/Category:Nanjing_Metro' into 'Category:Nanjing_Metro'
 def strip_internal_link(internal_link: str) -> str:
     return internal_link[6:]
@@ -98,36 +99,48 @@ def strip_internal_link(internal_link: str) -> str:
 
  def consume_queue(
         relevant_terms: Iterable[re.Pattern],
-        sess: r.Session,
         nodes_checked: Iterable[str],
         nodes_to_check: Iterable[str], 
         all_articles: Iterable[str]
-    ) -> None:
+        ) -> None:
     while True:
+        # try to work in batches of 20, but accept smaller batches
+        # if nodes_to_check is completely empty at the beginning,
+        # that indicates we have completely traversed the tree.
+        node_batch = list()
         try:
-            category = nodes_to_check.get_nowait()
-        except queue.Empty:
+            category = nodes_to_check.pop()
+            node_batch.append(category)
+            nodes_checked.add(category)
+        except IndexError
             return
-        nodes_checked.add(category)
-        response =  get_category_page(sess, category)
-            None,
-            BeautifulSoup,
-            response.text,
-            'html.parser'
-        soup =  soup_future
-        subcats =  subcategories(soup)
-        footer =  category_footer(soup)
-        for category in subcats:
-            if category not in nodes_checked and relevant_term_in_footer(relevant_terms, footer):
-                nodes_to_check.put(category)
-        pages =  pages_in_category(soup)
-        for page in pages:
-            if page not in all_articles:
-                print(page)
+        for i in range(19):
+            try:
+                category = nodes_to_check.pop()
+                node_batch.append(category)
+                nodes_checked.add(category)
+            except IndexError:
+                break
+
+        # turn these page names into Page objects
+        node_pages = find_indices(node_batch)
+        node_xmls  = get_articles(node_pages)
+        # add new articles to all_articles;
+        # add new, relevant categories in nodes_to_check.
+        for xml in node_xmls:
+            subcats = subcategories(xml)
+            footer =  category_footer(xml)
+            for category in subcats:
+                if category not in nodes_checked and relevant_term_in_footer(relevant_terms, footer):
+                    nodes_to_check.push(category)
+            pages = pages_in_category(xml)
+            for page in pages:
+                if page not in all_articles:
+                    print(page)
                 all_articles.add(page)
 
 
-def relevant_term_in_footer(relevant_terms, footer) -> bool:
+def relevant_term_in_footer(relevant_terms: Iterable[str], footer: Iterable[str]) -> bool:
     for term in relevant_terms:
         for footer_entry in footer:
             if term.search(footer_entry):
@@ -138,9 +151,8 @@ def relevant_term_in_footer(relevant_terms, footer) -> bool:
  def list_all_pages(
         category_name: str,
         relevant_terms: Iterable[str],
-    ) -> Iterable[str]:
-    sess = r.Session()
-    search_root = get_category_page_blocking(sess, category_name)
+        ) -> Iterable[Page]:
+    search_root = get_articles([category_name])
 
     relevant_terms = list(map(
         lambda term: re.compile(
@@ -150,7 +162,6 @@ def relevant_term_in_footer(relevant_terms, footer) -> bool:
         relevant_terms
     ))
 
-
     # DATASTRUCTURES
     # Implicitly, we are regarding Wikipedia pages as a rose tree.
     # The root will be a category page, and the children of each
@@ -159,27 +170,24 @@ def relevant_term_in_footer(relevant_terms, footer) -> bool:
     # and it ignores cycles it discovers.
     #
     # Th all_articles variable is our output datastructure. 
-    # We want appending  to be O(1), and we don't want duplicates.
+    # We want appending to be O(1) most of the time, but we don't want duplicates.
     # Thus the set type is ideal.
     all_articles = set()
     # We need nodes_checked in order to prevent ourselves from
     # traversing a cycle indefinitely. Choosing the set type gives
-    # us O(1) membership tests.
+    # us O(1) membership tests, with the same advantages as for all_articles.
     nodes_checked = set()
     # The nodes_to_check queue tracks all of the category pages
-    # we still need to traverse. I assume the search tree is much wider
+    # we still need to traverse. Using a list as a stack is preferable because
+    # its push and pop commands are O(1). I assume the search tree is much wider
     # than it is tall, based on the category pages I've observed.
-    # Thus LIFO will keep space complexity low as we traverse the tree.
-    # Our get and put operations are O(1).
-    nodes_to_check = queue.LifoQueue()
-    nodes_to_check.put(category_name)
+    # Thus the stack's LIFO semantics will use less memory than a FIFO structure.
+    nodes_to_check = list()
+    nodes_to_check.push(category_name)
 
-
-    # traverse the tree until
-    # nodes_to_check is empty
+    # traverse the tree unti nodes_to_check is empty
     consume_queue(
         relevant_terms,
-        sess,
         nodes_checked,
         nodes_to_check,
         all_articles
