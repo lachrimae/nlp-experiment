@@ -1,25 +1,36 @@
 from typing import Iterable
 import bz2
-from types import Page
+import re
+from wikitypes import Page
 from xml.etree import ElementTree as ET
 
 
 DUMP_LOCATION = '../data/enwiki-20200801-pages-articles-multistream.xml.bz2'
+ONE_MEGABYTE = 10000000
 
 
 def get_articles(pages: Iterable[Page]) -> Iterable[ET.Element]:
     output = list()
     articles_found = {page: False for page in pages}
     offsets = map(lambda page: page.offset, pages)
-    reader = bz2.BZ2Decompressor()
-    with bz2.open(DUMP_LOCATION, mode='rb') as dump:
+    last_reader = None
+    with open(DUMP_LOCATION, mode='rb') as dump_bytes:
         for offset in offsets:
+            reader = bz2.BZ2Decompressor()
+            #    with bz2.open(DUMP_LOCATION, mode='rb') as dump:
             pages_of_interest = filter(
                 lambda page: page.offset == offset,
                 pages
             )
-            dump.seek(offset)
-            last_article = b''
+            dump_bytes.seek(offset)
+            root_xml = None
+            if last_reader is None:
+                root_xml = ET.fromstring(reader.decompress(dump_bytes))
+            else:
+                root_xml = ET.fromstring(reader.decompress(last_reader.unused_data))
+            last_reader = reader
+            root_xml = ET.fromstring(xml_raw)
+            # THE THINGS AFTER THIS NOTE HAVE TO BE CHANGED
             while False in articles_found.values():
                 line = dump.readline()
                 if line == '': # EOF
@@ -27,6 +38,7 @@ def get_articles(pages: Iterable[Page]) -> Iterable[ET.Element]:
                 elif line != b'\n': # the separator between wikipedia articles
                     last_article += line
                     continue
+                print(last_article)
                 xml = ET.fromstring(last_article)
                 maybe_page = match_page(xml, pages_of_interest)
                 if maybe_page is not None:
@@ -36,22 +48,23 @@ def get_articles(pages: Iterable[Page]) -> Iterable[ET.Element]:
     return output
 
 
- def subcategories(html: BeautifulSoup) -> Iterable[str]:
-        None,
-        partial(
-            html.find_all,
-            'span', 
-            **{'class': 'CategoryTreeToggle'}
-        )
+def subcategories(xml: ET.Element) -> Iterable[str]:
+#        None,
+#        partial(
+#            html.find_all,
+#            'span', 
+#            **{'class': 'CategoryTreeToggle'}
+#        )
     return map(
         lambda toggle: toggle['data-ct-title'],
          toggles
     )
 
 
- def pages_in_category(html: BeautifulSoup) -> Iterable[str]:
-        None,
-        partial(html.find, 'div', id='mw-pages')
+def pages_in_category(xml: ET.Element) -> Iterable[str]:
+#
+#        None,
+#        partial(html.find, 'div', id='mw-pages')
     mw_pages =  mw_pages_future
     try:
             None,
@@ -71,12 +84,12 @@ def get_articles(pages: Iterable[Page]) -> Iterable[ET.Element]:
 
 
 def category_footer(xml: ET.Element) -> Iterable [str]:
-        None,
-        partial(
-            html.find,
-            'div',
-            **{'id': 'mw-normal-catlinks', 'class': 'mw-normal-catlinks'}
-        )
+#        None,
+#        partial(
+#            html.find,
+#            'div',
+#            **{'id': 'mw-normal-catlinks', 'class': 'mw-normal-catlinks'}
+#        )
     cat_links =  cat_links_future
     try:
         li = cat_links.find_all('li')
@@ -97,12 +110,12 @@ def strip_internal_link(internal_link: str) -> str:
     return internal_link[6:]
 
 
- def consume_queue(
-        relevant_terms: Iterable[re.Pattern],
-        nodes_checked: Iterable[str],
-        nodes_to_check: Iterable[str], 
-        all_articles: Iterable[str]
-        ) -> None:
+def consume_queue(
+    relevant_terms: Iterable[re.Pattern],
+    nodes_checked: Iterable[str],
+    nodes_to_check: Iterable[str], 
+    all_articles: Iterable[str]
+    ) -> None:
     while True:
         # try to work in batches of 20, but accept smaller batches
         # if nodes_to_check is completely empty at the beginning,
@@ -112,7 +125,7 @@ def strip_internal_link(internal_link: str) -> str:
             category = nodes_to_check.pop()
             node_batch.append(category)
             nodes_checked.add(category)
-        except IndexError
+        except IndexError:
             return
         for i in range(19):
             try:
@@ -148,7 +161,7 @@ def relevant_term_in_footer(relevant_terms: Iterable[str], footer: Iterable[str]
     return False
 
 
- def list_all_pages(
+def list_all_pages(
         category_name: str,
         relevant_terms: Iterable[str],
         ) -> Iterable[Page]:
