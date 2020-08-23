@@ -1,10 +1,14 @@
 #import wikitextparser
 import re
+import bz2
 from typing import Iterable
 from wikitypes import Page
+import xml.etree.ElementTree as ET
 
 
 INDEX_LOCATION = '../data/enwiki-20200801-pages-articles-multistream-index.txt'
+DUMP_LOCATION = '../data/enwiki-20200801-pages-articles-multistream.xml.bz2'
+FIVE_MEGABYTES = 5000000
 
 
 # The index file is a sequence of lines of the form '1480303199:694953:Category:Scientists'.
@@ -33,4 +37,30 @@ def find_indices(names: Iterable[str]) -> Iterable[Page]:
                     )
                     output.append(page)
     # be silent if some questions went unanswered.
+    return output
+
+
+def get_pages(pages: Iterable[Page]) -> Iterable[ET.Element]:
+    output = list()
+    articles_found = {page: False for page in pages}
+    offsets = map(lambda page: page.offset, pages)
+    last_reader = None
+    with open(DUMP_LOCATION, mode='rb') as dump_bytes:
+        for offset in offsets:
+            reader = bz2.BZ2Decompressor()
+            pages_of_interest = filter(
+                lambda page: page.offset == offset,
+                pages
+            )
+            dump_bytes.seek(offset)
+            five_mb_of_stream = dump_bytes.read(FIVE_MEGABYTES)
+            five_mb_decompressed = reader.decompress(five_mb_of_stream)
+            well_formed_xml = f'<pages>{five_mb_decompressed}</pages>'
+            pages_in_stream = ET.fromstring(well_formed_xml).findall('page')
+
+            for page in pages_in_stream:
+                maybe_match = match_page(page, pages_of_interest)
+                if maybe_match is not None:
+                    articles_found[maybe_match] = True
+                    output.append(page)
     return output
