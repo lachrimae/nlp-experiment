@@ -3,6 +3,7 @@ import re
 import bz2
 from typing import Iterable
 from wikitypes import Page
+from process_articles import match_page
 import xml.etree.ElementTree as ET
 
 
@@ -40,9 +41,7 @@ def find_indices(names: Iterable[str]) -> Iterable[Page]:
     return output
 
 
-def get_pages(pages: Iterable[Page]) -> Iterable[ET.Element]:
-    output = list()
-    articles_found = {page: False for page in pages}
+def populate_xml(pages: Iterable[Page]) -> None:
     offsets = map(lambda page: page.offset, pages)
     last_reader = None
     with open(DUMP_LOCATION, mode='rb') as dump_bytes:
@@ -53,14 +52,15 @@ def get_pages(pages: Iterable[Page]) -> Iterable[ET.Element]:
                 pages
             )
             dump_bytes.seek(offset)
+            # we can't open the whole file, but I've observed that the
+            # streams tend to be one megabyte long. With a fudge factor of five,
             five_mb_of_stream = dump_bytes.read(FIVE_MEGABYTES)
             five_mb_decompressed = reader.decompress(five_mb_of_stream)
             well_formed_xml = f'<pages>{five_mb_decompressed}</pages>'
-            pages_in_stream = ET.fromstring(well_formed_xml).findall('page')
+            print(well_formed_xml.replace('\\n', '\n'))
+            etree_pages = ET.fromstring(well_formed_xml).findall('page')
 
-            for page in pages_in_stream:
-                maybe_match = match_page(page, pages_of_interest)
+            for etree_page in etree_pages:
+                maybe_match = match_page(etree_page, pages_of_interest)
                 if maybe_match is not None:
-                    articles_found[maybe_match] = True
-                    output.append(page)
-    return output
+                    maybe_match.xml = etree_page

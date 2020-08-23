@@ -1,5 +1,4 @@
 from typing import Iterable
-from access_bz2 import get_articles, find_indices
 import re
 from wikitypes import Page
 from xml.etree import ElementTree as ET
@@ -75,44 +74,19 @@ def relevant_term_in_footer(relevant_terms: Iterable[str], footer: Iterable[str]
     return False
 
 
-def consume_queue(
-    relevant_terms: Iterable[re.Pattern],
-    nodes_checked: Iterable[str],
-    nodes_to_check: Iterable[str], 
-    all_articles: Iterable[str]
-    ) -> None:
-    while True:
-        # try to work in batches of 20, but accept smaller batches.
-        # If nodes_to_check is completely empty at the beginning,
-        # that indicates we have completely traversed the tree.
-        node_batch = list()
+def match_page(page_xml: ET.Element, pages: Iterable[Page]) -> Page:
+    def _match_page(page_xml: ET.Element, page: Page) -> bool:
+        title = page_xml.get('title')
+        if title == page.name:
+            return True
         try:
-            category = nodes_to_check.pop()
-            node_batch.append(category)
-            nodes_checked.add(category)
-        except IndexError:
-            return
-        for i in range(19):
-            try:
-                category = nodes_to_check.pop()
-                node_batch.append(category)
-                nodes_checked.add(category)
-            except IndexError:
-                break
-
-        # turn these page names into Page objects
-        node_pages = find_indices(node_batch)
-        node_xmls  = get_articles(node_pages)
-        # add new articles to all_articles, and add
-        # new, relevant categories in nodes_to_check.
-        for xml in node_xmls:
-            subcats = subcategories(xml)
-            footer =  category_footer(xml)
-            for category in subcats:
-                if category not in nodes_checked and relevant_term_in_footer(relevant_terms, footer):
-                    nodes_to_check.push(category)
-            pages = pages_in_category(xml)
-            for page in pages:
-                if page not in all_articles:
-                    print(page)
-                all_articles.add(page)
+            redirect = page_xml.find('redirect').attrib['title']
+            if redirect == page.name:
+                return True
+        except AttributeError:
+            pass
+        return False
+    for page in pages:
+        if _match_page(page_xml, page):
+            return page
+    return None
