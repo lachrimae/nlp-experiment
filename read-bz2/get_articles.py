@@ -8,7 +8,7 @@ import wikitextparser as w
 WIKIPEDIA_PREFIX = 'https://en.wikipedia.org/wiki/'
 
 
- def get_wiki(session: r.Session, page_name: str) -> r.Response:
+def get_wiki(session: r.Session, page_name: str) -> r.Response:
     url = WIKIPEDIA_PREFIX + page_name
     for i in range(len(page_name)):
         if page_name[i] == ' ':

@@ -7,12 +7,12 @@ download-data:
 		bunzip2 enwiki-20200801-pages-articles-multistream-index.txt.bz2
 
 keygen:
-	ssh-keygen -f ./docker/clusterkey -N ''
+	ssh-keygen -f ./docker-hadoop/clusterkey -N ''
 
 build-slave: keygen
 	docker build \
 		-t lachrimae/hadoop-slave \
-		-f ./docker/Dockerfile.slave \
+		-f ./docker-hadoop/Dockerfile.slave \
 		./docker 
 
 launch-slaves: build-slave
@@ -26,12 +26,12 @@ get-slave-hostnames: launch-slaves
 		| grep launcher=nlp-experiment \
 		| grep lachrimae/hadoop-slave \
 		| awk '{print $$1}' \
-	    > ./docker/slaves
+	    > ./docker-hadoop/slaves
 
 build-master: get-slave-hostnames
 	docker build \
 		-t lachrimae/hadoop-master \
-		-f ./docker/Dockerfile.master \
+		-f ./docker-hadoop/Dockerfile.master \
 		./docker 
 
 launch-master: build-master
