@@ -1,5 +1,15 @@
 SHELL:=/bin/bash
 
+createdb:
+	createdb -w -h localhost -U $$USER nlp-experiment 
+
+pysetup:
+	pip install -r ./requirements.txt
+
+loaddb:
+	cd read-bz2; \
+		python main.py localhost $$USER
+
 download-data:
 	cd data && \
 		wget https://dumps.wikimedia.org/enwiki/20200801/enwiki-20200801-pages-articles-multistream.xml.bz2 && \

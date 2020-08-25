@@ -1,6 +1,7 @@
 #import wikitextparser
 import re
 import bz2
+import random
 from typing import Iterable
 from wikitypes import Page
 import wikitextparser as wtp
@@ -15,30 +16,29 @@ FIVE_MEGABYTES = 5000000
 
 # The index file is a sequence of lines of the form '1480303199:694953:Category:Scientists'.
 # We want to be able to extract the indices of a bunch of articles all at once.
-def find_indices(names: Iterable[str]) -> Iterable[Page]:
+def get_indices_semirandom(quantity: int) -> Iterable[Page]:
     output = list()
-    found_pages = {name: False for name in names}
     # This regex matches on an article name, and helps us extract offset and pageid.
-    regexes = [re.compile(rf'^(?P<offset>\d+):(?P<pageid>\d+):(?P<name>{re.escape(n)})$') for n in names]
+    regex = re.compile(rf'^(?P<offset>\d+):(?P<pageid>\d+):(?P<name>.+)$')
+    count = 0
     with open(INDEX_LOCATION, mode='r') as index_file:
         # Loop as long as some questions are unanswered.
-        while False in found_pages.values():
+        while count < quantity:
             line = index_file.readline()
             # The following test indicates we've reached EOF
             if line == '':
                 break
-            for regex in regexes:
+            if random.random() < 0.05:
                 maybe_match = regex.match(line)
                 if maybe_match is not None:
+                    count += 1
                     name = maybe_match.group('name')
-                    found_pages[name] = True
                     page = Page(
                         maybe_match.group('pageid'), 
                         name, 
                         maybe_match.group('offset')
                     )
                     output.append(page)
-    # be silent if some questions went unanswered.
     return output
 
 
@@ -54,53 +54,6 @@ def belongs_to_category(page: Page, category: Page) -> bool:
     else:
         return False
 
-
-def find_category_indices() -> Iterable[Page]:
-    output = list()
-    # This regex matches on an article name, and helps us extract offset and pageid.
-    regex = re.compile(rf'^(?P<offset>\d+):(?P<pageid>\d+):(?P<name>Category:.+)$')
-    with open(INDEX_LOCATION, mode='r') as index_file:
-        # Loop as long as some questions are unanswered.
-        while True:
-            line = index_file.readline()
-            # The following test indicates we've reached EOF
-            if line == '':
-                break
-            maybe_match = regex.match(line)
-            if maybe_match is not None:
-                name = maybe_match.group('name')
-                page = Page(
-                    maybe_match.group('pageid'), 
-                    name, 
-                    maybe_match.group('offset')
-                )
-                output.append(page)
-    return output
-
-
-def iteratively_get_subtree(category_name: str) -> Iterable[Page]:
-    all_category_pages = find_category_indices()
-    root = None
-    for page in all_category_pages:
-        if page.name == category_name:
-            root = page
-            break
-    populate_xml([root])
-    subcategories = {root}
-    while True:
-        new_pages = list()
-        new_pages_found = False
-        for page in all_category_pages:
-            if any([belongs_to_category(page, subcategory) for subcategory in subcategories]):
-                if page not in all_subcategories:
-                    new_pages_found = True
-                    new_pages.append(page)
-        if not new_pages_found:
-            break
-        populate_xml(new_pages)
-        for page in new_pages:
-            all_subcategories.add(page)
-    return subcategories
 
 def populate_xml(pages: Iterable[Page]) -> None:
     offsets = map(lambda page: page.offset, pages)

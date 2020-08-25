@@ -28,3 +28,6 @@ class Page:
     def clean_title(title: str) -> None:
         title.replace('&amp;', '&').replace('&quot;', '"')
         return title
+
+    def get_wikitext(self) -> str:
+        return self.xml.find('revision').find('text').text
