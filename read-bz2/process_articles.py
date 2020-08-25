@@ -2,6 +2,7 @@ from typing import Iterable
 import re
 from wikitypes import Page
 from xml.etree import ElementTree as ET
+import wikitextparser
 
 
 def subcategories(xml: ET.Element) -> Iterable[str]:
@@ -75,18 +76,31 @@ def relevant_term_in_footer(relevant_terms: Iterable[str], footer: Iterable[str]
 
 
 def match_page(page_xml: ET.Element, pages: Iterable[Page]) -> Page:
-    def _match_page(page_xml: ET.Element, page: Page) -> bool:
-        title = page_xml.get('title')
-        if title == page.name:
-            return True
-        try:
-            redirect = page_xml.find('redirect').attrib['title']
-            if redirect == page.name:
-                return True
-        except AttributeError:
-            pass
-        return False
+    title = page_xml.find('title').text
     for page in pages:
-        if _match_page(page_xml, page):
+        if page.name == title:
             return page
     return None
+
+
+def get_wikitext(page_xml: ET.Element) -> str:
+    try:
+        out = page_xml.find('revision').find('text').text
+    except AttributeError:
+        try:
+            print(page_xml.getchildren())
+        except:
+            pass
+
+
+def belongs_to_category(page: Page, category: Page) -> bool:
+    xml = page.xml
+    if xml is None:
+        populate_xml([page])
+        xml = page.xml
+    text = get_wikitext(xml)
+    links = wtp.parse(text).wikilinks
+    if category.name in [link.title for link in links]:
+        return True
+    else:
+        return False

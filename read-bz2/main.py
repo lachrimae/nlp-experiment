@@ -4,10 +4,6 @@ import queue
 from typing import Iterable
 
 
-SCIENCE_KEYWORDS = ['Scien', 'physic', 'biolog', 'geolog', 'paleontolog', 'archaeolog', 'chemist', 'astronom', 'cosmolog', 'ecolog', 'oceanograph', 'meteorolog', 'biochem', 'botan', 'zoolog']
-MUSIC_KEYWORDS = ['music', 'sing', 'guitar', 'bass', 'brass', 'flaut', 'flute', 'string', 'instrument', 'ophone', 'pian', 'keyboard', 'funk', 'jazz', 'country', 'bluegrass', 'pop']
-
-
 def main():
     scientist_pages = list_all_pages(
         'Scientists',
@@ -17,6 +13,8 @@ def main():
         'Musicians',
         MUSIC_KEYWORDS
     )
+    print('scientists:\n', scientist_pages)
+    print('musicians:\n', musician_pages)
 
 
 def list_all_pages(
@@ -57,12 +55,12 @@ def list_all_pages(
     nodes_to_check.put(category_name)
 
     # traverse the tree unti nodes_to_check is empty
-    consume_queue(
+    asyncio.gather(*(NUM_CONSUMERS * [consume_queue(
         relevant_terms,
         nodes_checked,
         nodes_to_check,
         all_articles
-    )
+    )]))
     return all_articles
 
 
