@@ -19,14 +19,20 @@ download-data:
 keygen:
 	ssh-keygen -f ./docker-hadoop/clusterkey -N ''
 
-build-slave: keygen
+build-base:
+	docker build \
+		-t lachrimae/hadoop-base \
+		-f ./docker-hadoop/Dockerfile \
+		./docker-hadoop
+
+build-slave: build-base keygen
 	docker build \
 		-t lachrimae/hadoop-slave \
 		-f ./docker-hadoop/Dockerfile.slave \
 		./docker-hadoop
 
 launch-slaves: build-slave
-	docker run \
+	docker run -d \
 		-l launcher=nlp-experiment \
 		lachrimae/hadoop-slave
 
@@ -38,14 +44,14 @@ get-slave-hostnames: launch-slaves
 		| awk '{print $$1}' \
 	    > ./docker-hadoop/slaves
 
-build-master: get-slave-hostnames
+build-master: build-base get-slave-hostnames
 	docker build \
 		-t lachrimae/hadoop-master \
 		-f ./docker-hadoop/Dockerfile.master \
 		./docker-hadoop
 
 launch-master: build-master
-	docker run \
+	docker run -d \
 		-l launcher=nlp-experiment \
 		lachrimae/hadoop-master
 
@@ -53,4 +59,3 @@ up: launch-slaves launch-master
 
 down:
 	docker kill $$(docker ps --format '{{.ID}} {{.Labels}}' | grep launcher=nlp-experiment | awk '{print $$1}')
-	./scripts/tear-down.sh
