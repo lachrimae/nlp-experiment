@@ -56,7 +56,9 @@ def belongs_to_category(page: Page, category: Page) -> bool:
 
 
 def populate_xml(pages: Iterable[Page]) -> None:
-    offsets = map(lambda page: page.offset, pages)
+    length = len(pages)
+    number_found = 0
+    offsets = set(map(lambda page: page.offset, pages))
     matched_one = False
     with open(DUMP_LOCATION, mode='rb') as dump_bytes:
         for offset in offsets:
@@ -76,7 +78,10 @@ def populate_xml(pages: Iterable[Page]) -> None:
             for etree_page in etree_pages:
                 maybe_match = match_page(etree_page, pages)
                 if maybe_match is not None:
+                    number_found += 1
                     matched_one = True
                     maybe_match.xml = etree_page
+            print('outer loop xml\'s found: ', number_found, ' or ', 100 * number_found / length, '%')
+
     if not matched_one:
         print(pages[0].name)

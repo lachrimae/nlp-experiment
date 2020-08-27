@@ -1,4 +1,5 @@
 from typing import Iterable
+from functools import partial
 import re
 from wikitypes import Page
 from xml.etree import ElementTree as ET
@@ -46,13 +47,19 @@ def get_wikitext(page_xml: ET.Element) -> str:
 
 
 def is_in_category(wikitext, header_regexes) -> bool:
+    # We want the titles of the sections, i.e., the headers.
     headers = map(
         lambda section: section.title,
         wikitext.sections
     )
+    # Some sections have no title. We need to filter None's out.
+    headers = filter(
+        lambda header: header is not None,
+        headers
+    )
     for header in headers:
-        for r in header_regexes:
-            if r.search(header):
+        for regex in header_regexes:
+            if regex.search(header):
                 return True
     return False
 
