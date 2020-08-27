@@ -23,7 +23,7 @@ build-slave: keygen
 	docker build \
 		-t lachrimae/hadoop-slave \
 		-f ./docker-hadoop/Dockerfile.slave \
-		./docker 
+		./docker-hadoop
 
 launch-slaves: build-slave
 	docker run \
@@ -42,7 +42,7 @@ build-master: get-slave-hostnames
 	docker build \
 		-t lachrimae/hadoop-master \
 		-f ./docker-hadoop/Dockerfile.master \
-		./docker 
+		./docker-hadoop
 
 launch-master: build-master
 	docker run \
@@ -52,4 +52,5 @@ launch-master: build-master
 up: launch-slaves launch-master
 
 down:
+	docker kill $$(docker ps --format '{{.ID}} {{.Labels}}' | grep launcher=nlp-experiment | awk '{print $$1}')
 	./scripts/tear-down.sh
