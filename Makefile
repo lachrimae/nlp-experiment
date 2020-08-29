@@ -11,7 +11,7 @@ pysetup:
 
 loaddb:
 	cd read-bz2; \
-		python main.py localhost $$USER
+		python main.py localhost nlp secret
 
 download-data:
 	cd data && \
@@ -25,7 +25,7 @@ keygen:
 build-base:
 	docker build \
 		-t lachrimae/hadoop-base \
-		-f ./docker-hadoop/Dockerfile \
+		-f ./docker-hadoop/Dockerfile.base \
 		./docker-hadoop
 
 build-slave: build-base
@@ -41,10 +41,15 @@ build-master: build-base assemble-jar
 		-f ./docker-hadoop/Dockerfile.master \
 		./docker-hadoop
 
-run: build-slave build-master
+build: build-slave build-master
+
+run:
 	docker-compose up -d
-	docker exec master spark-submit \
-		--class com.lachrimae.analyzeWiki.AnalyzeApp \
-		--master spark://master:7077 \
-		--deploy-mode client \
-		/root/analyze.jar
+	sleep 2
+	docker exec db psql -U postgres -c \
+		"CREATE USER nlp PASSWORD 'secret';"
+	docker exec db psql -U postgres -c \
+		"CREATE DATABASE nlp_experiment OWNER nlp;"
+	docker exec master bash -c \
+		'spark-submit --class com.lachrimae.analyzeWiki.AnalyzeApp --master spark://master:7077 --deploy-mode client /root/analyze.jar nlp secret'
+	docker-compose down

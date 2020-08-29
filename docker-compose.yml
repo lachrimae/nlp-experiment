@@ -1,16 +1,28 @@
 version: '3'
 
 services:
+    db:
+        image: postgres
+        container_name: db
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: secret
+            POSTGRES_DB: postgres
+        expose:
+            - "5432"
+        networks:
+            - nlp-net
     master:
         image: lachrimae/hadoop-master
         container_name: master
         expose: 
+            - "5432"
             - "20"
-        ports:
-            - "7077:7077"
         networks:
-            - default
             - nlp-net
+        depends_on:
+            - db
+            - slave
     slave:
         image: lachrimae/hadoop-slave
         container_name: slave

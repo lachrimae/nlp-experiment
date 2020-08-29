@@ -21,8 +21,13 @@ object QueryRecipe {
   * */
 object AnalyzeApp extends App{
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
+  val dbIP = args(0)
+//#  val dbUser = args(1)
   val conn = Transactor.fromDriverManager[IO](
-  "org.postgresql.Driver", "jdbc:postgresql:world", "postgres", ""
+    "org.postgresql.Driver", 
+    s"jdbc:postgresql://db/nlp_experiment", 
+    args(0), // username
+    args(1)  // password
   )
 
   val articles = QueryRecipe

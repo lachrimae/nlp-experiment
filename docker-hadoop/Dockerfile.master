@@ -1,5 +1,7 @@
 FROM lachrimae/hadoop-base
 
+RUN apt-get -yq install iproute2
+
 COPY slaves $SPARK_HOME/conf/slaves
 COPY clusterkey /root/.ssh/id_rsa
 RUN chmod 400 /root/.ssh/id_rsa
