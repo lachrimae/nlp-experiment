@@ -2,7 +2,6 @@ SHELL:=/bin/bash
 
 assemble-jar:
 	cd analyzewiki && sbt assembly
-	cp analyzewiki/target/scala-2.11/analyzeWiki-assembly-0.1.0-SNAPSHOT.jar docker-hadoop/analyze.jar
 
 createdb:
 	createdb -w -h localhost -U $$USER nlp-experiment 
@@ -35,16 +34,17 @@ build-slave: build-base
 		-f ./docker-hadoop/Dockerfile.slave \
 		./docker-hadoop
 
-build-master: assemble-jar
+build-master: build-base assemble-jar
+	cp ./analyzewiki/target/scala-2.11/analyzeWiki-assembly-0.1.0-SNAPSHOT.jar ./docker-hadoop/analyze.jar
 	docker build \
 		-t lachrimae/hadoop-master \
 		-f ./docker-hadoop/Dockerfile.master \
 		./docker-hadoop
 
-submit-app:
-	docker exec \
-		spark-submit \
+run: build-slave build-master
+	docker-compose up -d
+	docker exec master spark-submit \
 		--class com.lachrimae.analyzeWiki.AnalyzeApp \
-		--master spark://127.0.0.1:7077 \
-		--deploy-mode cluster \
-		/root/AnalyzeApp.jar
+		--master spark://master:7077 \
+		--deploy-mode client \
+		/root/analyze.jar

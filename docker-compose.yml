@@ -3,16 +3,19 @@ version: '3'
 services:
     master:
         image: lachrimae/hadoop-master
-        ports: 
-            - "8020:20"
-        links:
-            - slave
+        container_name: master
+        expose: 
+            - "20"
+        ports:
+            - "7077:7077"
         networks:
+            - default
             - nlp-net
     slave:
         image: lachrimae/hadoop-slave
-        ports:
-            - "8021:20"
+        container_name: slave
+        expose:
+            - "20"
         networks:
             - nlp-net
 
