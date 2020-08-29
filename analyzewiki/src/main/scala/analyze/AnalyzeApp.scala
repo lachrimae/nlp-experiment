@@ -7,22 +7,6 @@ import doobie.util.ExecutionContexts
 import cats._, cats.data._, cats.effect._, cats.implicits._
 import scala.language.higherKinds
 
-/**
-  * Use this to test the app locally, from sbt:
-  * sbt "run inputFile.txt outputFile.txt"
-  *  (+ select AnalyzeLocalApp when prompted)
-  *
-object AnalyzeLocalApp extends App{
-  val (inputFile, outputFile) = (args(0), args(1))
-  val conf = new SparkConf()
-    .setMaster("local")
-    .setAppName("nlp-experiment")
-
-  Runner.run(conf, inputFile, outputFile)
-}
-  */
-
-
 object QueryRecipe {
   val tableName = "bio_articles"
   val articleNames = sql"SELECT id, article_contents FROM ${tableName}".query[Article]

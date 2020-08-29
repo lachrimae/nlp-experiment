@@ -21,4 +21,11 @@ lazy val root = (project in file("."))
     )
   )
 
+mainClass in Compile := Some("org.lachrimae.analyzeWiki.AnalyzeApp")
+
+assemblyMergeStrategy in assembly := {   
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard   
+  case x => MergeStrategy.first 
+}
+
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.

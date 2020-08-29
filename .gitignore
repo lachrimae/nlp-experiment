@@ -2,6 +2,8 @@ __pycache__
 TODO.md
 .ipynb_checkpoints/
 clusterkey*
+analyzewiki/target/*
+analyze.jar
 slaves
 data/*
 logfile

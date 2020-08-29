@@ -1,5 +1,9 @@
 SHELL:=/bin/bash
 
+assemble-jar:
+	cd analyzewiki && sbt assembly
+	cp analyzewiki/target/scala-2.11/analyzeWiki-assembly-0.1.0-SNAPSHOT.jar docker-hadoop/analyze.jar
+
 createdb:
 	createdb -w -h localhost -U $$USER nlp-experiment 
 
@@ -25,37 +29,22 @@ build-base:
 		-f ./docker-hadoop/Dockerfile \
 		./docker-hadoop
 
-build-slave: build-base keygen
+build-slave: build-base
 	docker build \
 		-t lachrimae/hadoop-slave \
 		-f ./docker-hadoop/Dockerfile.slave \
 		./docker-hadoop
 
-launch-slaves: build-slave
-	docker run -d \
-		-l launcher=nlp-experiment \
-		lachrimae/hadoop-slave
-
-get-slave-hostnames: launch-slaves
-	docker ps \
-		--format '{{.ID}} {{.Image}} {{.Labels}}' \
-		| grep launcher=nlp-experiment \
-		| grep lachrimae/hadoop-slave \
-		| awk '{print $$1}' \
-	    > ./docker-hadoop/slaves
-
-build-master: build-base get-slave-hostnames
+build-master: assemble-jar
 	docker build \
 		-t lachrimae/hadoop-master \
 		-f ./docker-hadoop/Dockerfile.master \
 		./docker-hadoop
 
-launch-master: build-master
-	docker run -d \
-		-l launcher=nlp-experiment \
-		lachrimae/hadoop-master
-
-up: launch-slaves launch-master
-
-down:
-	docker kill $$(docker ps --format '{{.ID}} {{.Labels}}' | grep launcher=nlp-experiment | awk '{print $$1}')
+submit-app:
+	docker exec \
+		spark-submit \
+		--class com.lachrimae.analyzeWiki.AnalyzeApp \
+		--master spark://127.0.0.1:7077 \
+		--deploy-mode cluster \
+		/root/AnalyzeApp.jar

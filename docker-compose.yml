@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+    master:
+        image: lachrimae/hadoop-master
+        ports: 
+            - "8020:20"
+        links:
+            - slave
+        networks:
+            - nlp-net
+    slave:
+        image: lachrimae/hadoop-slave
+        ports:
+            - "8021:20"
+        networks:
+            - nlp-net
+
+networks:
+    nlp-net:
+        driver: "bridge"
