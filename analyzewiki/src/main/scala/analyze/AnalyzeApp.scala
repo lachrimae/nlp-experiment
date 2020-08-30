@@ -8,10 +8,9 @@ import cats._, cats.data._, cats.effect._, cats.implicits._
 import scala.language.higherKinds
 
 object QueryRecipe {
-  val tableName = "bio_articles"
-  val articleNames = sql"SELECT id, article_contents FROM ${tableName}".query[Article]
+  val articleNames = sql"SELECT id, article_contents FROM articles".query[Article]
   def writeStats[F[_]: Foldable](statsList: F[Stats]): ConnectionIO[Int] = {
-    var sql = "UPDATE ${tableName} SET mean_word_length = ?, mean_sentence_length = ?, stddev_word_length = ?, stddev_sentence_length ? WHERE id = ?"
+    var sql = "UPDATE articles SET mean_word_length = ?, mean_sentence_length = ?, stddev_word_length = ?, stddev_sentence_length ? WHERE id = ?"
     Update[Stats](sql).updateMany(statsList)
   }
 }
@@ -21,8 +20,6 @@ object QueryRecipe {
   * */
 object AnalyzeApp extends App{
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
-  val dbIP = args(0)
-//#  val dbUser = args(1)
   val conn = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", 
     s"jdbc:postgresql://db/nlp_experiment", 

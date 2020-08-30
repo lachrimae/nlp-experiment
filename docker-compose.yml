@@ -8,10 +8,13 @@ services:
             POSTGRES_USER: postgres
             POSTGRES_PASSWORD: secret
             POSTGRES_DB: postgres
-        expose:
-            - "5432"
+        ports:
+            - "5432:5432"
         networks:
             - nlp-net
+        restart: always
+        volumes:
+            - ./postgres-data:/var/lib/postgresql/data
     master:
         image: lachrimae/hadoop-master
         container_name: master

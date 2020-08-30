@@ -3,6 +3,7 @@ TODO.md
 .ipynb_checkpoints/
 clusterkey*
 analyzewiki/target/*
+postgres-data/
 analyze.jar
 slaves
 data/*
