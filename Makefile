@@ -7,8 +7,10 @@ pysetup:
 	pip install -r ./read-bz2/requirements.txt
 
 loaddb:
-	cd read-bz2; \
+	docker-compose up -d
+	cd read-bz2 && \
 		python main.py localhost nlp secret
+	docker-compose down
 
 download-data:
 	mkdir ./data
@@ -53,6 +55,7 @@ initdb:
 	docker-compose down
 
 run:
+	docker-compose up -d
 	docker exec master bash -c \
 		'spark-submit --class com.lachrimae.analyzeWiki.AnalyzeApp --master spark://master:7077 --deploy-mode client /root/analyze.jar nlp secret'
 	docker-compose down

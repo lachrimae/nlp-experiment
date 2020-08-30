@@ -15,6 +15,7 @@ object QueryRecipe {
   }
 }
 
+
 /**
   * Use this when submitting the app to a cluster with spark-submit
   * */
@@ -26,14 +27,13 @@ object AnalyzeApp extends App{
     args(0), // username
     args(1)  // password
   )
-
   val articles = QueryRecipe
     .articleNames
     .to[Seq]
     .transact(conn)
     .unsafeRunSync
 
-  // spark-submit command should supply all necessary config elements
+//  val jdbcDF = -
   Runner.run(new SparkConf(), articles, conn)
 }
 

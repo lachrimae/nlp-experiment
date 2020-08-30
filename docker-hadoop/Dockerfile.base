@@ -2,14 +2,21 @@ FROM rastasheep/ubuntu-sshd:18.04
 
 RUN apt-get update && \
     apt-get install -yq --no-install-recommends \
-    default-jdk \
+    openjdk-8-jdk \
     scala \
     git \
     wget
 
-RUN wget https://archive.apache.org/dist/spark/spark-2.4.0/spark-2.4.0-bin-hadoop2.7.tgz
-RUN tar xvf spark-2.4.0-bin-hadoop2.7.tgz
-RUN mv spark-2.4.0-bin-hadoop2.7 /opt/spark
+RUN wget https://downloads.apache.org/hadoop/common/hadoop-2.7.7/hadoop-2.7.7.tar.gz
+RUN tar xvf hadoop-2.7.7.tar.gz
+RUN mv hadoop-2.7.7 /opt/hadoop
+
+ENV HADOOP_HOME=/opt/hadoop
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native
+
+RUN wget https://archive.apache.org/dist/spark/spark-2.4.6/spark-2.4.6-bin-hadoop2.7.tgz
+RUN tar xvf spark-2.4.6-bin-hadoop2.7.tgz
+RUN mv spark-2.4.6-bin-hadoop2.7 /opt/spark
 
 ENV SPARK_HOME=/opt/spark
 ENV PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin
