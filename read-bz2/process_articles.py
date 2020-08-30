@@ -1,5 +1,6 @@
 from typing import Iterable
-from functools import partial
+from functools import partial, reduce
+from math import sqrt
 import re
 from wikitypes import Page
 from xml.etree import ElementTree as ET
@@ -70,3 +71,36 @@ def is_geography(wikitext) -> bool:
 
 def is_biography(wikitext) -> bool:
     return is_in_category(wikitext, BIOGRAPHY_KEYWORDS)
+
+
+def sentence_stats(plaintext) -> (float, float):
+    plaintext = " ".join(plaintext.split()) # deduplicates whitespace
+    # The first .split('.') gives us a list of strings.
+    # I use the map->reduce idiom to split these strings further
+    # without increasing the nesting depth.
+    sentences = plaintext.split('.')
+    sentences = reduce(list.__add__,
+        map(lambda sentence: sentence.split('!'), sentences)
+    )
+    sentences = reduce(list.__add__,
+        map(lambda sentence: sentence.split('?'), sentences)
+    )
+    # Finally, I split on ' ' to split each sentence into words, since
+    # those are what we're counting.
+    sentences = list(map(lambda sentence: sentence.split(' '), sentences))
+    return length_stats(sentences)
+
+
+def word_stats(plaintext) -> (float, float):
+    # With no args, 'split()' splits on whitespace.
+    words = plaintext.split()
+    return length_stats(words)
+
+
+# returns mean, stddev.
+def length_stats(list_of_containers) -> (float, float):
+    num_containers    = len(list_of_containers)
+    container_lengths = list(map(len, list_of_containers))
+    mean_length    = sum(container_lengths) / num_containers
+    stddev_length  = sqrt(sum(map(lambda l: (l - mean_length)**2, container_lengths)))
+    return (mean_length, stddev_length)

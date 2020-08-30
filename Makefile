@@ -12,6 +12,12 @@ loaddb:
 		python main.py localhost nlp secret
 	docker-compose down
 
+loaddb-analyze:
+	docker-compose up -d
+	cd read-bz2 && \
+		python main.py localhost nlp secret --analyzenow
+	docker-compose down
+
 download-data:
 	mkdir ./data
 	cd data && \
@@ -58,4 +64,11 @@ run:
 	docker-compose up -d
 	docker exec master bash -c \
 		'spark-submit --class com.lachrimae.analyzeWiki.AnalyzeApp --master spark://master:7077 --deploy-mode client /root/analyze.jar nlp secret'
+	docker-compose down
+
+learn:
+	docker-compose up -d
+	sleep 5
+	cd learn && \
+		python main.py localhost nlp secret
 	docker-compose down
