@@ -3,7 +3,7 @@ Can we train machine learning models to detect whether a Wikipedia article is ab
 
 ## Method
 1. Make a small (~20 000 articles) sample from Wikipedia's bz2-compressed XML dump from 1 Aug 2020. Categorize the articles as geography or biography (or both) based on the presence of keywords in their section headers.
-2. Use Apache Hadoop and Spark to find the statistical properties of the articles' word and sentence length. (Or, since I don't have access to a cluster, process the articles directly decompressing them in Python.)
+2. Use Scala with Apache Hadoop and Spark to find the statistical properties of the articles' word and sentence length. (Or, in the absence of access to a cluster, process the articles directly decompressing them in Python.)
 3. Store the results in a PostgreSQL database.
 4. Use scikit-learn to build a multinomial logistic model; use Keras to train a neural net model. 
 5. Assess the accuracy of the models.
