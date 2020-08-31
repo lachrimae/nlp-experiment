@@ -4,7 +4,7 @@ assemble-jar:
 	cd analyzewiki && sbt assembly
 
 pysetup:
-	pip install -r ./read-bz2/requirements.txt
+	pip install -r ./requirements.txt
 
 loaddb:
 	docker-compose up -d
